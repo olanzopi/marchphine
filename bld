@@ -1,0 +1,19 @@
+#!/bin/bash
+
+case "$1" in
+    run)
+        cd build
+        rm marchphine
+        cmake --build . -j16
+        ./marchphine
+	;;
+    build)
+        cd build
+        rm marchphine
+        cmake --build . -j16
+        ;;
+    *)
+        echo "usage: $0 {run|build}"
+        exit 1
+        ;;
+esac
