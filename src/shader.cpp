@@ -171,7 +171,7 @@ GLint Shader::getUniformLocation(const char *name) {
 	GLint rez = glGetUniformLocation(id, name);
 
 	if (rez == -1) {
-		std::cout << "uniform error or sum idk";
+		std::cout << "uniform location invalid";
 	}
 
 	return rez;

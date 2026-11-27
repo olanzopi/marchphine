@@ -1,3 +1,6 @@
+#include <thread>
+#include <chrono>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <shader.h>
@@ -11,6 +14,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#include "imgui.h"
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_opengl3.h"
 
 void draw_object(
     GLuint MVP_Uniform, 
@@ -50,24 +57,28 @@ void main_game(GLFWwindow* window) {
 
     //cube
 
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
+    const float quadVertices[] = {
+        -1.0f,  1.0f, 0.0f,
+        -1.0f, -1.0f, 0.0f,
+        1.0f, -1.0f, 0.0f,
 
-    GLuint buffer = 0;
-    glGenBuffers(1, &buffer);
+        -1.0f,  1.0f, 0.0f,
+        1.0f, -1.0f, 0.0f,
+        1.0f,  1.0f, 0.0f
+    };
 
-    glBindBuffer(GL_ARRAY_BUFFER, buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    GLuint quadVAO = 0, quadVBO = 0;
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float)*9, (void*)0); // x y z
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float)*9, (void*)(sizeof(float)*3)); // r g b
-
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(float)*9, (void*)(sizeof(float)*6)); // normals
+    glBindVertexArray(0);
 
     //indencis
 
@@ -83,11 +94,21 @@ void main_game(GLFWwindow* window) {
 
     GLint move = shader.getUniformLocation("MVP");
     GLint Model = shader.getUniformLocation("Model");
+    GLint iTimeLoc = shader.getUniformLocation("iTime");
+    GLint iResLoc  = shader.getUniformLocation("iResolution");
+
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
+
+    ImGui::StyleColorsDark();
 
     float posX = 0.0f, posY = 0.0f, posZ = 0.0f;
     float rotX = 0.0f, rotY = 0.0f;
-    float moveSpeed = 0.01f;
-    float sensitivity = 0.1f;
+    float moveSpeed = 2.0f;
+    float sensitivity = 20.0f;
     float fov = 90.0f;
 
     bool mouse_enabled = true;
@@ -95,45 +116,39 @@ void main_game(GLFWwindow* window) {
 
     double prevX = 0.0f, prevY = 0.0f;
 
-    double previousTime = glfwGetTime();
-    double start_time = previousTime;
-    float fps = 0;
-    float frame_count = 0;
+    float targetFPS = 240.0;
+    double targetFrameTime = 1.0 / targetFPS;
+    double lastTime = glfwGetTime();
 
     while (!glfwWindowShouldClose(window)) {
+        double targetFrameTime = 1.0 / targetFPS;
 
-        frame_count++;
         double currentTime = glfwGetTime();
-
-        if(currentTime - start_time >= 1) {
-            fps = frame_count;
-            frame_count = 0;
-            start_time = currentTime;
-        }
-        previousTime = currentTime;
+        float dt = static_cast<float>(currentTime - lastTime);
+        lastTime = currentTime;
 
         glClearColor(0.4,0.4,0.4,0.4);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Input | Position
 
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) { posX += sin(rotX*(M_PI/180)) * moveSpeed; posZ += cos(rotX*(M_PI/180)) * moveSpeed; }
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) { posX -= sin(rotX*(M_PI/180)) * moveSpeed; posZ -= cos(rotX*(M_PI/180)) * moveSpeed; }
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) { posX += sin(rotX*(M_PI/180)) * moveSpeed * dt; posZ += cos(rotX*(M_PI/180)) * moveSpeed * dt; }
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) { posX -= sin(rotX*(M_PI/180)) * moveSpeed * dt; posZ -= cos(rotX*(M_PI/180)) * moveSpeed * dt; }
 
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) { posX += sin((rotX-90)*(M_PI/180)) * moveSpeed; posZ += cos((rotX-90)*(M_PI/180)) * moveSpeed; }
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) { posX += sin((rotX+90)*(M_PI/180)) * moveSpeed; posZ += cos((rotX+90)*(M_PI/180)) * moveSpeed; }
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) { posX += sin((rotX-90)*(M_PI/180)) * moveSpeed * dt; posZ += cos((rotX-90)*(M_PI/180)) * moveSpeed * dt; }
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) { posX += sin((rotX+90)*(M_PI/180)) * moveSpeed * dt; posZ += cos((rotX+90)*(M_PI/180)) * moveSpeed * dt; }
 
-        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) { posY += moveSpeed; }
-        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) { posY -= moveSpeed; }
+        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) { posY += moveSpeed * dt; }
+        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) { posY -= moveSpeed * dt; }
 
         // FOV
 
-        if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) { fov -= 1.0f; }
-        if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) { fov += 1.0f; }
+        if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) { fov -= 40.0f * dt; }
+        if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) { fov += 40.0f * dt; }
 
         fov = glm::clamp(fov, 1.0f, 179.0f);
 
-        if (glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS) { 
+        if (glfwGetKey(window, GLFW_KEY_GRAVE_ACCENT) == GLFW_PRESS) { 
             if(!tab_pressed) {
                 mouse_enabled = !mouse_enabled;
                 if (!mouse_enabled) {
@@ -151,36 +166,85 @@ void main_game(GLFWwindow* window) {
 
         // Input | Rotation
 
-        if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) { rotX += sensitivity*5; }
-        if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) { rotX -= sensitivity*5; }
+        if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)  { rotX += sensitivity * 5 * dt; }
+        if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) { rotX -= sensitivity * 5 * dt; }
 
-        if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) { rotY += sensitivity*5; }
-        if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) { rotY -= sensitivity*5; }
+        if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)   { rotY += sensitivity * 5 * dt; }
+        if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) { rotY -= sensitivity * 5 * dt; }
 
         // Rotation clamping
         if (mouse_enabled) {
-            double delX = gMouse.x - prevX; double delY = gMouse.y - prevY;
-            rotX -= (delX * sensitivity);
-            rotY -= delY * sensitivity;
+            double delX = gMouse.x - prevX;
+            double delY = gMouse.y - prevY;
+
+            rotX -= delX * sensitivity * dt;
+            rotY -= delY * sensitivity * dt;
+
             prevX = gMouse.x; prevY = gMouse.y;
         }
             
-        if (rotX >= 360) { rotX-=360; }
-        if (rotX <= 0) { rotX=360+rotX; }
-        rotY = glm::clamp(rotY, -89.0f, 89.0f);
+        if (rotX >= 360) { rotX -= 360; }
+        if (rotX <= 0)   { rotX  = 360 + rotX; }
+        rotY = glm::clamp(rotY, -89.9f, 89.9f);
 
-        draw_object(
-            move,                                           // uniform location
-            Model,
-            glm::vec3(posX, posY, posZ),                    // camera location
-            glm::vec2(rotX*(M_PI/180),rotY*(M_PI/180)),     // camera rotation
-            fov,                                            // fov
-            glm::vec3(0,0,0),                               // model_pos
-            glm::vec3(0, 0, 0),                             // model_rot
-            vao
-        );
+        int fbWidth = 1200, fbHeight = 800;
+        glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+        float aspect = (fbHeight > 0)
+            ? static_cast<float>(fbWidth) / static_cast<float>(fbHeight)
+            : (1200.0f / 800.0f);
+
+        glm::mat4 Projection = glm::perspective(glm::radians(fov), aspect, 0.1f, 100.0f);
+
+        float yaw = glm::radians(rotX);
+        float pitch = glm::radians(rotY);
+        glm::vec3 forward{
+            cos(pitch) * sin(yaw),
+            sin(pitch),
+            cos(pitch) * cos(yaw)
+        };
+        glm::vec3 camPos{posX, posY, posZ};
+        glm::mat4 View = glm::lookAt(camPos, camPos + forward, glm::vec3(0.0f, 1.0f, 0.0f));
+
+        glm::mat4 modelMat = glm::mat4(1.0f);
+        glm::mat4 mvpMat = Projection * View * modelMat;
+
+        glUniform1f(iTimeLoc, (float)currentTime);
+        glUniform3f(iResLoc, 1200.0f, 800.0f, 1.0f);
+
+        shader.bind();
+        glUniformMatrix4fv(move, 1, GL_FALSE, glm::value_ptr(mvpMat));
+        glUniformMatrix4fv(Model, 1, GL_FALSE, glm::value_ptr(modelMat));
+
+        glBindVertexArray(quadVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("meowlicious debug panel");
+        ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
+        ImGui::Text("FOV: %.2f", fov);
+        ImGui::Text("Camera position: %.2f, %.2f, %.2f", posX, posY, posZ);
+        ImGui::Text("Camera rotation: %.2f, %.2f", rotX, rotY);
+        ImGui::SliderFloat("Target Framerate", &targetFPS, 1.0f, 860.0f, "%.0f");
+        ImGui::SliderFloat("Move speed",  &moveSpeed,   0.0f, 100.0f);
+        ImGui::SliderFloat("Sensitivity", &sensitivity, 0.0f, 100.0f);
+        ImGui::End();
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+        double frameEndTime = lastTime + targetFrameTime;
+        double timeRemaining = frameEndTime - glfwGetTime();
+
+        if (timeRemaining > 0.002) {
+            std::this_thread::sleep_for(std::chrono::duration<double>(timeRemaining - 0.002));
+        }
+        while (glfwGetTime() < frameEndTime) {}
     }
 }

@@ -25,7 +25,7 @@ int main() {
     glfwMakeContextCurrent(window);
 
     //vsync 0=off, comment=on
-    //glfwSwapInterval(0);
+    glfwSwapInterval(0);
 
     if (!gladLoadGL()) {
         log_fatal("opengl init error");
