@@ -1,2 +1,4 @@
 # marchphine
-C++ Raymarcher through OpenGL
+C++ Raymarcher using OpenGL
+
+This project will showcase multiple effects you can create using Raymarching.
