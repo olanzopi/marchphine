@@ -1,51 +1,54 @@
-#include <iostream>
+#define GLFW_INCLUDE_NONE
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <shader.h>
 
-using namespace std; 
+#include <fstream>
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
-    glViewport(0, 0, width, height);
+#include "gameloop.h"
+#include "logger.h"
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+    gMouse.x = static_cast<int>(xpos);
+    gMouse.y = static_cast<int>(ypos);
 }
 
-int main()
-{
-    if (!glfwInit())
-    {
-        cout << "Failed to initialize GLFW" << endl;
-        return -1;
+int main() {
+    log_debug("hi!");
+
+    if(!glfwInit()) {
+        log_fatal("glfw init error");
+        return 1;
     }
 
-    glfwWindowHint(GLFW_SAMPLES, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-    GLFWwindow* window;
-    window = glfwCreateWindow(640, 480, "marchphine", NULL, NULL);
-    if (window == NULL)
-    {
-        cout << "Failed to open GLFW window" << endl;
-        return -1;
-    }
+    GLFWwindow *window = glfwCreateWindow(1200, 800, "marchphine", NULL, NULL);
     glfwMakeContextCurrent(window);
 
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-    {
-        cout << "Failed to initialize GLAD" << endl;
+    //vsync 0=off, comment=on
+    //glfwSwapInterval(0);
+
+    if (!gladLoadGL()) {
+        log_fatal("opengl init error");
         return -1;
     }
 
-    glViewport(0, 0, 640, 480);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    if (glfwRawMouseMotionSupported())
+        glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
-    while(!glfwWindowShouldClose(window))
-    {
-        glfwSwapBuffers(window);
-        glfwPollEvents();    
-    }
+    glEnable(GL_BLEND);
+    glEnable(GL_CULL_FACE); 
 
-    glfwTerminate();
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
+    main_game(window);
+
+    log_debug("goodbye!");
+    
+    glfwDestroyWindow(window);
+    glfwTerminate();    
+
     return 0;
 }

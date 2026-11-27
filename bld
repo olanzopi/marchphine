@@ -2,15 +2,16 @@
 
 case "$1" in
     run)
-        cd build
-        rm marchphine
-        cmake --build . -j16
+        rm build/linux/marchphine
+        cmake --build --preset linux . -j16
+        cd build/linux
         ./marchphine
 	;;
     build)
-        cd build
-        rm marchphine
-        cmake --build . -j16
+        echo "starting linux build"
+        cmake --build --preset linux -j16
+        echo "starting windows build"
+        cmake --build --preset windows -j16
         ;;
     *)
         echo "usage: $0 {run|build}"
